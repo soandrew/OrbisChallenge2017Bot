@@ -10,10 +10,8 @@ class PlayerAI:
         Any instantiation code goes here
         """
         self.turn_count = 0
-        # self.nest_middle = Tile((0,0), Team.NEUTRAL, False)
         self.targets = {}
         self.uuid_to_target = {}
-        # value = [position, bool reached]
         self.nest_points = set()
         self.nest_avoid_points = set()
 
@@ -25,37 +23,36 @@ class PlayerAI:
         :param friendly_units: list of FriendlyUnit objects
         :param enemy_units: list of EnemyUnit objects
         """
-        # Fly away to freedom, daring fireflies
-        # Build thou nests
-        # Grow, become stronger
-        # Take over the world
+        # Build nests and then attack
 
         # Cache world information used for attacking
         enemy_nest_neighbour_positions = sum([list(world.get_neighbours(point).values())
-                                     for point in world.get_enemy_nest_positions()],
-                                   [])
+                                                for point in world.get_enemy_nest_positions()],
+                                             [])
         enemy_positions = {enemy.position for enemy in enemy_units}
         average_enemy_health = sum(enemy.health for enemy in enemy_units)/len(enemy_units)
         friendly_nest_positions = world.get_friendly_nest_positions()
 
+        # First turn initialization
         if self.turn_count == 0:
-            first_nest = world.get_friendly_nest_positions()[0]
+            first_nest = friendly_nest_positions[0]
             self.nest_points.add(first_nest)
             self.nest_avoid_points |= get_nest_avoid_points_around(first_nest)
-        i = 0
-        for unit in friendly_units:
-            # Schedule new nest to build every fourth turn
-            if self.turn_count % 4 == 0 and ((i != 0 and i % 4 == 0) or self.turn_count == 0):
-                nest = world.get_closest_neutral_tile_from(unit.position, self.nest_avoid_points)
-                if nest:
-                    self.targets = world.get_tiles_around(nest.position)
 
+        # Loop over friendly units and assign them to build nests or attack
+        for i, unit in enumerate(friendly_units):
+            # Schedule new nest to build every fourth turn
+            if (self.turn_count % 4 == 0
+                    and ((i != 0 and i % 4 == 0) or self.turn_count == 0)):
+                nest = world.get_closest_neutral_tile_from(unit.position, self.nest_avoid_points)
+                if nest:  # FOund a spot to build a nest
+                    self.targets = world.get_tiles_around(nest.position)
                     self.nest_points.add(nest.position)
                     self.nest_avoid_points |= get_nest_avoid_points_around(nest.position)
-                else:
+                else:  # No more space for nests
                     self.targets = None
 
-            attack = True
+            attack = True  # Boolean flag for whether to attack or defend
             if self.targets:
                 # Assign unit a target if not already have one
                 if unit.uuid not in self.uuid_to_target:
@@ -90,7 +87,8 @@ class PlayerAI:
                     else:
                         path = world.get_shortest_path(unit.position, self.uuid_to_target[unit.uuid][0], None)
                         attack = False
-            if attack:
+
+            if attack:  # Attack mode
                 # Locate enemy units stronger than this unit
                 strong_enemy_positions = {enemy.position for enemy in enemy_units
                                            if enemy.health > unit.health}
@@ -118,15 +116,6 @@ class PlayerAI:
             i += 1
         self.turn_count += 1
 
-        # else:
-        #     for unit in friendly_units:
-        #         target = world.get_closest_capturable_tile_from(unit.position,
-        #                                                         None)
-        #         path = world.get_shortest_path(unit.position,
-        #                                        target.position,
-        #                                        None)
-        #         if path:
-        #             world.move(unit, path[0])
 
 
 def get_nest_avoid_points_around(point):
