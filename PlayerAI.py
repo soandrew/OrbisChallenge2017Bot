@@ -74,3 +74,26 @@ def get_nest_avoid_points_around(point):
                (x - 2, y), (x - 1, y),     point,      (x + 1, y),    (x + 2, y),
                            (x - 1, y + 1), (x, y + 1), (x + 1, y + 1),
                                            (x, y + 2)}
+
+        # # Schedule clusters of fireflies to go to closest neutral tile and build a nest
+        # # And then hold the position
+        # for unit in friendly_units:
+        #     path = world.get_shortest_path(unit.position,
+        #                                    world.get_closest_capturable_tile_from(unit.position, None).position,
+        #                                    None)
+        #     if path: world.move(unit, path[0])
+        #     sort_by_taxicab_distance_to((4,4), friendly_units)
+
+
+def sort_by_taxicab_distance_to(point, units):
+    """
+    Return a sorted copy of units in increasing order of taxicab distance from point.
+
+    :param (int, int) point: point to calculate distance from
+    :param list of Unit units: list of Unit objects to sort
+    :return: a sorted copy of units in increasing order
+    :rtype: list of Unit
+    """
+    def taxicab_distance(p1, p2):
+        return abs(p2[0] - p1[0]) + abs(p2[1] - p1[1])
+    return sorted(units, key=lambda unit: taxicab_distance(unit.position, point))
