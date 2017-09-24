@@ -4,8 +4,6 @@ from PythonClientAPI.Game.Entities import FriendlyUnit, EnemyUnit, Tile
 from PythonClientAPI.Game.Enums import Direction, MoveType, MoveResult
 from PythonClientAPI.Game.World import World
 
-from functools import reduce
-
 class PlayerAI:
     def __init__(self):
         """
@@ -102,13 +100,13 @@ class PlayerAI:
                         break
                 if not target:  # No good targets in neighbouring points
                     # Check if it's smarter to just rest
-                    if unit.health <= average_enemy_health and unit.position not in friendly_nest_positions:
+                    if unit.health < average_enemy_health and unit.position not in friendly_nest_positions:
                         continue
                     # Best decision is to target closest capturable tile
-                    target = world.get_closest_capturable_tile_from(unit.position, None).position
+                    target = world.get_closest_capturable_tile_from(unit.position, self.nest_points).position
 
                 # Get path
-                path = world.get_shortest_path(unit.position, target, None)
+                path = world.get_shortest_path(unit.position, target, self.nest_points)
 
             if path:
                 world.move(unit, path[0])
