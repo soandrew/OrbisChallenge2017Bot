@@ -23,7 +23,7 @@ class World:
         """
         return self.uuid_to_friendlies_map.get(uuid, None)
 
-    def move(self, unit, position):
+    def move(self, unit: object, position: object) -> object:
         """
         Moves a unit one step closer to position. Use this method to assign moves for your units.
 
@@ -132,7 +132,7 @@ class World:
 
 
 
-    def get_shortest_path(self, start, end, avoid):
+    def get_shortest_path(self, start: object, end: object, avoid: object) -> object:
         """
         Returns the shortest path between start and end.
         If avoid is not None, the method will return the shortest path
