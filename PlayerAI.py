@@ -72,10 +72,11 @@ class PlayerAI:
                             idx += 1
 
                         if idx == 4:
-                            self.uuid_to_target[unit.uuid] = [(0,0), True]
+                            self.uuid_to_target[unit.uuid] = [(0, 0), True]
                         else:
                             self.uuid_to_target[unit.uuid] = [self.targets[direction].position,
                                                               False]
+                            attack = False
 
                 # If unit is already in target position
                 if self.uuid_to_target[unit.uuid][0] == unit.position:
@@ -86,7 +87,11 @@ class PlayerAI:
                 if not self.uuid_to_target[unit.uuid][1]:
                     # Calculate path for unit to go to target
                     path = world.get_shortest_path(unit.position, self.uuid_to_target[unit.uuid][0], self.nest_points)
-                    attack = False
+                    if path:
+                        attack = False
+                    else:
+                        path = world.get_shortest_path(unit.position, self.uuid_to_target[unit.uuid][0], None)
+                        attack = False
             if attack:
                 # Locate enemy units stronger than this unit
                 strong_enemy_positions = {enemy.position for enemy in enemy_units
