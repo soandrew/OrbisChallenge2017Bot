@@ -4,6 +4,7 @@ from PythonClientAPI.Game.Entities import FriendlyUnit, EnemyUnit, Tile
 from PythonClientAPI.Game.Enums import Direction, MoveType, MoveResult
 from PythonClientAPI.Game.World import World
 
+from functools import reduce
 
 class PlayerAI:
     def __init__(self):
@@ -30,6 +31,14 @@ class PlayerAI:
         # Build thou nests
         # Grow, become stronger
         # Take over the world
+
+        # Cache world information used for attacking
+        enemy_nest_neighbour_positions = sum([list(world.get_neighbours(point).values())
+                                     for point in world.get_enemy_nest_positions()],
+                                   [])
+        enemy_positions = {enemy.position for enemy in enemy_units}
+        average_enemy_health = sum(enemy.health for enemy in enemy_units)/len(enemy_units)
+        friendly_nest_positions = world.get_friendly_nest_positions()
 
         if self.turn_count == 0:
             first_nest = world.get_friendly_nest_positions()[0]
@@ -79,9 +88,27 @@ class PlayerAI:
                     path = world.get_shortest_path(unit.position, self.uuid_to_target[unit.uuid][0], self.nest_points)
                     attack = False
             if attack:
-                # ATTACK
-                capture = world.get_closest_capturable_tile_from(unit.position, self.nest_points)
-                path = world.get_shortest_path(unit.position, capture.position, self.nest_points)
+                # Locate enemy units stronger than this unit
+                strong_enemy_positions = {enemy.position for enemy in enemy_units
+                                           if enemy.health > unit.health}
+
+                # Look at neighbouring points to make best decision
+                target = None
+                for point in world.get_neighbours(unit.position).values():
+                    if ((point in enemy_nest_neighbour_positions
+                          or point in enemy_positions)
+                          and point not in strong_enemy_positions):
+                        target = point
+                        break
+                if not target:  # No good targets in neighbouring points
+                    # Check if it's smarter to just rest
+                    if unit.health <= average_enemy_health and unit.position not in friendly_nest_positions:
+                        continue
+                    # Best decision is to target closest capturable tile
+                    target = world.get_closest_capturable_tile_from(unit.position, None).position
+
+                # Get path
+                path = world.get_shortest_path(unit.position, target, None)
 
             if path:
                 world.move(unit, path[0])
