@@ -26,12 +26,14 @@ class PlayerAI:
         # Build nests and then attack
 
         # Cache world information used for attacking
+        enemy_nest_positions = world.get_enemy_nest_positions();
         enemy_nest_neighbour_positions = sum([list(world.get_neighbours(point).values())
-                                                for point in world.get_enemy_nest_positions()],
-                                             [])
+                                                for point in enemy_nest_positions],
+                                             [])  # Nested list flatenning
         enemy_positions = {enemy.position for enemy in enemy_units}
         average_enemy_health = sum(enemy.health for enemy in enemy_units)/len(enemy_units)
         friendly_nest_positions = world.get_friendly_nest_positions()
+        friendly_score, enemy_score = calculate_score(world.get_friendly_tiles(), world.get_enemy_tiles())
 
         # First turn initialization
         if self.turn_count == 0:
@@ -95,10 +97,16 @@ class PlayerAI:
 
                 # Look at neighbouring points to make best decision
                 target = None
+                avoid = set()
                 for point in world.get_neighbours(unit.position).values():
-                    if ((point in enemy_nest_neighbour_positions
-                          or point in enemy_positions)
-                          and point not in strong_enemy_positions):
+                    if point in enemy_nest_neighbour_positions and point not in strong_enemy_positions:
+                        if len(enemy_nest_positions) == 1 and friendly_score + 10 <= enemy_score - 5:  # Lose if attack
+                            avoid.add(point)
+                            continue
+                        else:
+                            target = point
+                            break
+                    elif point in enemy_positions and point not in strong_enemy_positions:
                         target = point
                         break
                 if not target:  # No good targets in neighbouring points
@@ -106,10 +114,10 @@ class PlayerAI:
                     if unit.health < average_enemy_health and unit.position not in friendly_nest_positions:
                         continue
                     # Best decision is to target closest capturable tile
-                    target = world.get_closest_capturable_tile_from(unit.position, self.nest_points).position
+                    target = world.get_closest_capturable_tile_from(unit.position, self.nest_points | avoid).position
 
                 # Get path
-                path = world.get_shortest_path(unit.position, target, self.nest_points)
+                path = world.get_shortest_path(unit.position, target, self.nest_points | avoid)
 
             if path:
                 world.move(unit, path[0])
@@ -132,3 +140,21 @@ def get_nest_avoid_points_around(point):
             (x - 2, y), (x - 1, y), point, (x + 1, y), (x + 2, y),
             (x - 1, y + 1), (x, y + 1), (x + 1, y + 1),
             (x, y + 2)}
+
+
+def calculate_score(friendly_tiles, enemy_tiles):
+    """
+    Calculate and return the current score.
+
+    :param list of Tile friendly_tiles:
+    :param list of Tile enemy_tiles:
+    :return: the current score as a tuple (friendly_score, enemy_score)
+    :rtype: (int, int)
+    """
+    friendly_permanent_tiles = [tile for tile in friendly_tiles if tile.is_permanently_owned()]
+    enemy_permanent_tiles = [tile for tile in enemy_tiles if tile.is_permanently_owned()]
+    num_friendly_permanent_tiles = len(friendly_permanent_tiles)
+    num_enemy_permanent_tiles = len(enemy_permanent_tiles)
+    num_friendly_non_permanent_tiles = len(friendly_tiles) - num_friendly_permanent_tiles
+    num_enemy_non_permanent_tiles = len(enemy_tiles) - num_enemy_permanent_tiles
+    return (num_friendly_non_permanent_tiles + 2 * num_friendly_permanent_tiles, num_enemy_non_permanent_tiles + 2 * num_enemy_permanent_tiles)
