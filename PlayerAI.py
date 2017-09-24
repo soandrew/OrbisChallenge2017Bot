@@ -14,6 +14,7 @@ class PlayerAI:
         # self.nest_middle = Tile((0,0), Team.NEUTRAL, False)
         self.targets = {}
         self.uuid_to_target = {}
+        # value = [position, bool reached]
         self.nest_points = set()
         self.nest_avoid_points = set()
 
@@ -30,23 +31,61 @@ class PlayerAI:
         # Grow, become stronger
         # Take over the world
 
+        if self.turn_count == 0:
+            first_nest = world.get_friendly_nest_positions()[0]
+            self.nest_points.add(first_nest)
+            self.nest_avoid_points |= get_nest_avoid_points_around(first_nest)
         i = 0
         for unit in friendly_units:
             # Schedule new nest to build every fourth turn
-            if self.turn_count % 4 == 0:
+            if self.turn_count % 4 == 0 and ((i != 0 and i % 4 == 0) or self.turn_count == 0):
                 nest = world.get_closest_neutral_tile_from(unit.position, self.nest_avoid_points)
-                self.targets = world.get_tiles_around(nest.position)
+                if nest:
+                    self.targets = world.get_tiles_around(nest.position)
 
-                self.nest_points.add(nest.position)
-                self.nest_avoid_points |= get_nest_avoid_points_around(nest.position)
-            # Assign unit a target if not already have one
-            if unit.uuid not in self.uuid_to_target:
-                self.uuid_to_target[unit.uuid] = self.targets[Direction.ORDERED_DIRECTIONS[i]].position
-            # Calculate path for unit
-            path = world.get_shortest_path(unit.position, self.uuid_to_target[unit.uuid], self.nest_points)
+                    self.nest_points.add(nest.position)
+                    self.nest_avoid_points |= get_nest_avoid_points_around(nest.position)
+                else:
+                    self.targets = None
+
+            attack = True
+            if self.targets:
+                # Assign unit a target if not already have one
+                if unit.uuid not in self.uuid_to_target:
+                    idx = i % 4
+
+                    if idx > (len(self.targets) - 1):
+                        self.uuid_to_target[unit.uuid] = [(0, 0), True]
+                    else:
+                        direction = Direction.ORDERED_DIRECTIONS[idx]
+                        while idx < 4 and (direction not in self.targets):
+                            direction = Direction.ORDERED_DIRECTIONS[idx]
+                            idx += 1
+
+                        if idx == 4:
+                            self.uuid_to_target[unit.uuid] = [(0,0), True]
+                        else:
+                            self.uuid_to_target[unit.uuid] = [self.targets[direction].position,
+                                                              False]
+
+                # If unit is already in target position
+                if self.uuid_to_target[unit.uuid][0] == unit.position:
+                    # change bool to True
+                    self.uuid_to_target[unit.uuid][1] = True
+
+                # If unit hasn't reached it's target yet
+                if not self.uuid_to_target[unit.uuid][1]:
+                    # Calculate path for unit to go to target
+                    path = world.get_shortest_path(unit.position, self.uuid_to_target[unit.uuid][0], self.nest_points)
+                    attack = False
+            if attack:
+                # ATTACK
+                capture = world.get_closest_capturable_tile_from(unit.position, self.nest_points)
+                path = world.get_shortest_path(unit.position, capture.position, self.nest_points)
+
             if path:
                 world.move(unit, path[0])
-            i = (i + 1) % 4
+            i += 1
         self.turn_count += 1
 
         # else:
@@ -69,31 +108,8 @@ def get_nest_avoid_points_around(point):
     :rtype: set of points
     """
     x, y = point[0], point[1]
-    return  {                           (x, y - 2),
-                           (x - 1, y - 1), (x, y - 1), (x + 1, y - 1),
-               (x - 2, y), (x - 1, y),     point,      (x + 1, y),    (x + 2, y),
-                           (x - 1, y + 1), (x, y + 1), (x + 1, y + 1),
-                                           (x, y + 2)}
-
-        # # Schedule clusters of fireflies to go to closest neutral tile and build a nest
-        # # And then hold the position
-        # for unit in friendly_units:
-        #     path = world.get_shortest_path(unit.position,
-        #                                    world.get_closest_capturable_tile_from(unit.position, None).position,
-        #                                    None)
-        #     if path: world.move(unit, path[0])
-        #     sort_by_taxicab_distance_to((4,4), friendly_units)
-
-
-def sort_by_taxicab_distance_to(point, units):
-    """
-    Return a sorted copy of units in increasing order of taxicab distance from point.
-
-    :param (int, int) point: point to calculate distance from
-    :param list of Unit units: list of Unit objects to sort
-    :return: a sorted copy of units in increasing order
-    :rtype: list of Unit
-    """
-    def taxicab_distance(p1, p2):
-        return abs(p2[0] - p1[0]) + abs(p2[1] - p1[1])
-    return sorted(units, key=lambda unit: taxicab_distance(unit.position, point))
+    return {(x, y - 2),
+            (x - 1, y - 1), (x, y - 1), (x + 1, y - 1),
+            (x - 2, y), (x - 1, y), point, (x + 1, y), (x + 2, y),
+            (x - 1, y + 1), (x, y + 1), (x + 1, y + 1),
+            (x, y + 2)}
